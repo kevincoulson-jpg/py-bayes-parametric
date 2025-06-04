@@ -4,6 +4,18 @@ import pandas as pd
 import numpy as np
 from io import StringIO
 
+def naca_code(m, p, t):
+    m_digit = int(round(m * 100))
+    p_digit = int(round(p * 10))
+    t_digits = int(round(t * 100))
+    return f"NACA{m_digit}{p_digit}{t_digits:02d}"
+
+def evaluate_naca_design(m, p, t, alpha, reynolds_number):
+    code = naca_code(m, p, t)
+    cl, cd = run_xfoil_single_alpha(naca_profile=code, reynolds_number=reynolds_number, alpha=alpha)
+    return cl, cd
+
+
 def run_xfoil_single_alpha(dat_filepath: str=None, naca_profile: str=None, reynolds_number: int=3000000, alpha: float=5.0, output_filename: str="polar_output.txt", verbose: bool=False):
     """
     Run XFOIL for a single alpha angle.

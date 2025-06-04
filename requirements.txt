@@ -9,3 +9,4 @@ scikit-learn
 pandas
 pyvista
 ezdxf
+plotly

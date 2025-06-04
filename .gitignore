@@ -29,6 +29,7 @@ wheels/
 
 # Data directories
 data/
+plots/
 **/data/
 examples/*/data/
 examples/FreeCADFEA/data/

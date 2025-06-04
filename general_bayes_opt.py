@@ -104,8 +104,7 @@ class GeneralBayesOpt:
             y_weights (list of float): Weights for objective functions
             filename (str): Path to save the NPZ file
         """
-        X = np.array(self.X)
-        Y = np.array(self.Y)
+        X, Y = self.filter_invalid_points()
         data_dict, x_labels_out, y_labels_out = opt_output_arrays_to_dict(X, Y, x_labels, y_labels, y_weights)
         save_optimization_dict(data_dict, x_labels_out, y_labels_out, filename)
 
