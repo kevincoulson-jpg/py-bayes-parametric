@@ -10,10 +10,11 @@ from botorch.fit import fit_gpytorch_mll
 from utils.optimization_utils import opt_output_arrays_to_dict, save_optimization_dict
 
 class GeneralBayesOpt:
-    def __init__(self, bounds, evaluate_function, n_init=5, n_iter=20, device='cpu'):
+    def __init__(self, bounds, evaluate_function, constraints=None, n_init=5, n_iter=20, device='cpu'):
         """
         bounds: list of (min, max) for each variable
         evaluate_function: callable that takes x (parameter values) and returns a list of objective values
+        constraints: list of callables, each takes x and returns True if constraint is satisfied
         """
         print(f"[INIT GENERAL] Raw bounds: {bounds}")
         self.bounds = torch.tensor(bounds, dtype=torch.double, device=device)
@@ -24,17 +25,28 @@ class GeneralBayesOpt:
         self.device = device
         self.X = []
         self.Y = []
+        self.constraints = constraints if constraints is not None else []
+
+    def check_constraints(self, x):
+        """Check if all constraints are satisfied."""
+        return all(constraint(x) for constraint in self.constraints)
 
     def evaluate(self, x):
         """Evaluate all objectives at x (expects x as 1D numpy array)."""
         print(f"[EVAL GENERAL] x={x}")
+        if not self.check_constraints(x):
+            print(f"[EVAL GENERAL] Constraints not satisfied for x={x}")
+            return [-1e15] * len(self.evaluate_function(x))
         return self.evaluate_function(x)
 
     def initialize(self):
         for _, i in enumerate(range(self.n_init)):
-            # Generate random values within bounds
+            # Generate random values within bounds until constraints are satisfied
+            while True:
+                x = np.random.uniform(self.bounds[0].cpu(), self.bounds[1].cpu())
+                if self.check_constraints(x):
+                    break
             print("-"*20, f"[INIT] i={i}", "-"*20)
-            x = np.random.uniform(self.bounds[0].cpu(), self.bounds[1].cpu())
             print(f"[INIT] x={x}")
             y = self.evaluate(x)
             self.X.append(x)
@@ -97,6 +109,13 @@ class GeneralBayesOpt:
         data_dict, x_labels_out, y_labels_out = opt_output_arrays_to_dict(X, Y, x_labels, y_labels, y_weights)
         save_optimization_dict(data_dict, x_labels_out, y_labels_out, filename)
 
+    def filter_invalid_points(self):
+        """Filter out points that violate constraints (have large negative objective values)."""
+        X = np.array(self.X)
+        Y = np.array(self.Y)
+        valid_mask = ~np.any(Y <= -1e14, axis=1)  # Points with values less than -1e14 are considered invalid
+        return X[valid_mask], Y[valid_mask]
+
 if __name__ == "__main__":
     import matplotlib.pyplot as plt
     
@@ -105,6 +124,9 @@ if __name__ == "__main__":
         return [np.sin(x[0]) + 0.1*x[0]**3]
     
     def single_obj_2d(x):
+        return [np.sin(x[0]) + 0.1*x[0]**3 + np.cos(x[1]) + 0.2*x[1]**2]
+    
+    def single_obj_2d_constrained(x):
         return [np.sin(x[0]) + 0.1*x[0]**3 + np.cos(x[1]) + 0.2*x[1]**2]
     
     # Multi-objective examples
@@ -116,6 +138,19 @@ if __name__ == "__main__":
         return [np.sin(x[0]) + 0.1*x[0]**3 + np.cos(x[1]) + 0.2*x[1]**2,
                 np.cos(x[0]) + 0.2*x[0]**2 + np.sin(x[1]) + 0.1*x[1]**3]
     
+    def multi_obj_2d_constrained(x):
+        return [np.sin(x[0]) + 0.1*x[0]**3 + np.cos(x[1]) + 0.2*x[1]**2,
+                np.cos(x[0]) + 0.2*x[0]**2 + np.sin(x[1]) + 0.1*x[1]**3]
+    
+    # Define constraints
+    def constraint_x1_gt_x2(x):
+        return x[0] > x[1]
+    
+    def constraint_sum_lt_5(x):
+        return x[0] + x[1] < 5
+    
+    constraints = [constraint_x1_gt_x2, constraint_sum_lt_5]
+    
     # 1D Single objective optimization
     bounds_1d = [[-5], [5]]
     single_opt_1d = GeneralBayesOpt(bounds_1d, single_obj_1d, n_init=3, n_iter=10)
@@ -126,6 +161,12 @@ if __name__ == "__main__":
     single_opt_2d = GeneralBayesOpt(bounds_2d, single_obj_2d, n_init=3, n_iter=10)
     X_single_2d, Y_single_2d = single_opt_2d.optimize()
     
+    # 2D Single objective optimization with constraints
+    single_opt_2d_constrained = GeneralBayesOpt(bounds_2d, single_obj_2d_constrained, 
+                                              constraints=constraints, n_init=3, n_iter=10)
+    X_single_2d_constrained, Y_single_2d_constrained = single_opt_2d_constrained.optimize()
+    X_single_2d_constrained, Y_single_2d_constrained = single_opt_2d_constrained.filter_invalid_points()
+    
     # 1D Multi-objective optimization
     multi_opt_1d = GeneralBayesOpt(bounds_1d, multi_obj_1d, n_init=3, n_iter=10)
     X_multi_1d, Y_multi_1d = multi_opt_1d.optimize()
@@ -134,11 +175,17 @@ if __name__ == "__main__":
     multi_opt_2d = GeneralBayesOpt(bounds_2d, multi_obj_2d, n_init=3, n_iter=10)
     X_multi_2d, Y_multi_2d = multi_opt_2d.optimize()
     
+    # 2D Multi-objective optimization with constraints
+    multi_opt_2d_constrained = GeneralBayesOpt(bounds_2d, multi_obj_2d_constrained, 
+                                             constraints=constraints, n_init=3, n_iter=10)
+    X_multi_2d_constrained, Y_multi_2d_constrained = multi_opt_2d_constrained.optimize()
+    X_multi_2d_constrained, Y_multi_2d_constrained = multi_opt_2d_constrained.filter_invalid_points()
+    
     # Plotting
-    plt.figure(figsize=(15, 10))
+    plt.figure(figsize=(15, 15))
     
     # 1D Single objective plot
-    plt.subplot(221)
+    plt.subplot(321)
     x_plot = np.linspace(-5, 5, 100)
     plt.plot(x_plot, np.sin(x_plot) + 0.1*x_plot**3, 'b-', label='True function')
     plt.scatter(X_single_1d, Y_single_1d, c='r', label='Samples')
@@ -147,16 +194,30 @@ if __name__ == "__main__":
     plt.title('1D Single Objective')
     plt.legend()
     
-    # 2D Single objective plot (showing best points)
-    plt.subplot(222)
+    # 2D Single objective plot
+    plt.subplot(322)
     plt.scatter(X_single_2d[:, 0], X_single_2d[:, 1], c=Y_single_2d, cmap='viridis')
     plt.colorbar(label='Objective value')
     plt.xlabel('x₁')
     plt.ylabel('x₂')
     plt.title('2D Single Objective')
     
+    # 2D Single objective plot with constraints
+    plt.subplot(323)
+    plt.scatter(X_single_2d_constrained[:, 0], X_single_2d_constrained[:, 1], 
+               c=Y_single_2d_constrained, cmap='viridis')
+    plt.colorbar(label='Objective value')
+    plt.xlabel('x₁')
+    plt.ylabel('x₂')
+    plt.title('2D Single Objective (Constrained)')
+    # Plot constraint boundaries
+    x1 = np.linspace(-5, 5, 100)
+    plt.plot(x1, x1, 'r--', label='x₁ = x₂')  # x1 > x2 boundary
+    plt.plot(x1, 5 - x1, 'g--', label='x₁ + x₂ = 5')  # x1 + x2 < 5 boundary
+    plt.legend()
+    
     # 1D Multi-objective plot
-    plt.subplot(223)
+    plt.subplot(324)
     plt.scatter(Y_multi_1d[:, 0], Y_multi_1d[:, 1], c='r', label='Samples')
     plt.xlabel('f₁(x) = sin(x) + 0.1x³')
     plt.ylabel('f₂(x) = cos(x) + 0.2x²')
@@ -164,11 +225,20 @@ if __name__ == "__main__":
     plt.legend()
     
     # 2D Multi-objective plot
-    plt.subplot(224)
+    plt.subplot(325)
     plt.scatter(Y_multi_2d[:, 0], Y_multi_2d[:, 1], c='r', label='Samples')
     plt.xlabel('f₁(x) = sin(x₁) + 0.1x₁³ + cos(x₂) + 0.2x₂²')
     plt.ylabel('f₂(x) = cos(x₁) + 0.2x₁² + sin(x₂) + 0.1x₂³')
     plt.title('2D Multi-Objective')
+    plt.legend()
+    
+    # 2D Multi-objective plot with constraints
+    plt.subplot(326)
+    plt.scatter(Y_multi_2d_constrained[:, 0], Y_multi_2d_constrained[:, 1], 
+               c='r', label='Samples')
+    plt.xlabel('f₁(x) = sin(x₁) + 0.1x₁³ + cos(x₂) + 0.2x₂²')
+    plt.ylabel('f₂(x) = cos(x₁) + 0.2x₁² + sin(x₂) + 0.1x₂³')
+    plt.title('2D Multi-Objective (Constrained)')
     plt.legend()
     
     plt.tight_layout()

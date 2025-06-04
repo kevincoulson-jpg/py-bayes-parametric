@@ -204,6 +204,15 @@ class FreeCADInterface:
         """
         self.internal_mesh, self.boundaries = get_mesh(self.output_json_path + '/results_openfoam/pv.foam')
 
+    def export_dxf(self, obj_name: str='Sketch'):
+        """
+        Export a DXF file of the object.
+        """
+        MODIFIED_PATH = "C:/Users/kevin/Documents/bayes-foil/data/"
+        self.add_command('import importDXF')
+        self.add_command(f's = App.ActiveDocument.getObjectsByLabel("{obj_name}")[0]')
+        self.add_command(f'importDXF.export(s, r"{MODIFIED_PATH}/foil.dxf")')
+        self.send_code()
 
     def run_and_set_output(self, command: str):
         """

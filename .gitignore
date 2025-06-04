@@ -42,3 +42,6 @@ examples/FreeCADFEA/data/
 # OS
 .DS_Store
 Thumbs.db 
+
+# FreeCAD
+*.FCbak
