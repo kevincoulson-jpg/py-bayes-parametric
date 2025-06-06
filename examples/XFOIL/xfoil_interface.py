@@ -15,8 +15,11 @@ def evaluate_naca_design(m, p, t, alpha, reynolds_number):
     cl, cd = run_xfoil_single_alpha(naca_profile=code, reynolds_number=reynolds_number, alpha=alpha)
     return cl, cd
 
+def evaluate_custom_design(dat_filepath: str, reynolds_number: int, alpha: float):
+    cl, cd = run_xfoil_single_alpha(dat_filepath=dat_filepath, reynolds_number=reynolds_number, alpha=alpha)
+    return cl, cd
 
-def run_xfoil_single_alpha(dat_filepath: str=None, naca_profile: str=None, reynolds_number: int=3000000, alpha: float=5.0, output_filename: str="polar_output.txt", verbose: bool=False):
+def run_xfoil_single_alpha(dat_filepath: str=None, naca_profile: str=None, reynolds_number: int=3000000, alpha: float=5.0, output_filename: str="polar_output.txt", verbose: bool=False, timeout: int=5):
     """
     Run XFOIL for a single alpha angle.
     dat_filepath: str
@@ -24,6 +27,7 @@ def run_xfoil_single_alpha(dat_filepath: str=None, naca_profile: str=None, reyno
     reynolds_number: int
     alpha: float
     output_filename: str ## TODO: make this a path in this directory somehow
+    timeout: int - timeout in seconds for XFOIL execution
     
     returns: cl, cd
     """
@@ -59,7 +63,8 @@ QUIT
             input=xfoil_commands,
             capture_output=True,
             text=True,
-            check=True  # This will raise CalledProcessError if the command fails
+            check=True,  # This will raise CalledProcessError if the command fails
+            timeout=timeout  # Add timeout parameter
         )
         if verbose:
             print("XFOIL stdout:", result.stdout)
@@ -68,10 +73,13 @@ QUIT
         print(f"XFOIL failed with error code {e.returncode}")
         print("XFOIL stdout:", e.stdout)
         print("XFOIL stderr:", e.stderr)
-        raise
+        return np.nan, np.nan
+    except subprocess.TimeoutExpired as e:
+        print(f"XFOIL execution timed out after {timeout} seconds")
+        return np.nan, np.nan
     except FileNotFoundError:
         print("XFOIL executable not found at the specified path")
-        raise
+        return np.nan, np.nan
 
     # Parse output
     output_filename = output_filename

@@ -37,7 +37,12 @@ class GeneralBayesOpt:
         if not self.check_constraints(x):
             print(f"[EVAL GENERAL] Constraints not satisfied for x={x}")
             return [-1e15] * len(self.evaluate_function(x))
-        return self.evaluate_function(x)
+        
+        y = self.evaluate_function(x)
+        if np.any(np.isnan(y)):
+            print(f"[EVAL GENERAL] NaN values in output for x={x}")
+            return [-1e15] * len(y)
+        return y
 
     def initialize(self):
         for _, i in enumerate(range(self.n_init)):

@@ -353,6 +353,7 @@ def create_dashboard_html(output_dir="plots"):
     print(f"Dashboard saved to {outpath}")
 
 if __name__ == "__main__":
-    plot_subobjectives_vs_iteration(r"C:/Users/kevin/Documents/py-bayes-parametric/examples/XFOIL/data/xfoil_4digit.npz")
-    plot_pareto_fronts(r"C:/Users/kevin/Documents/py-bayes-parametric/examples/XFOIL/data/xfoil_4digit.npz")
+    data_path = r"C:/Users/kevin/Documents/py-bayes-parametric/examples/FreeCADFEA/data/bracket_optimization_results.npz"
+    plot_subobjectives_vs_iteration(data_path)
+    plot_pareto_fronts(data_path)
     create_dashboard_html("plots") 
