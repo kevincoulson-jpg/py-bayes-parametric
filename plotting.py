@@ -54,9 +54,10 @@ def plot_subobjectives_vs_iteration(npz_path, output_dir="plots"):
     fig.update_layout(
         title='Objectives vs. Iteration',
         template='plotly_white',
-        width=700,
-        height=165*n_sub,  # Reduced height per subplot
+        width=750,
+        height=450*n_sub,  # Reduced height per subplot
         margin=dict(l=60, r=30, t=60, b=30)
+        # No global xaxis_title or yaxis_title
     )
     outpath = os.path.join(output_dir, 'subobjectives_vs_iteration.html')
     fig.write_html(outpath)
@@ -142,8 +143,8 @@ def plot_inputs_vs_iteration_colored(npz_path, output_dir="plots"):
             yanchor='top',
             showactive=True
         )],
-        width=900,
-        height=350*n_inputs,
+        width=750,
+        height=450*n_inputs,
         margin=dict(l=60, r=30, t=60, b=60),
         title="Input Variables vs. Iteration (colored by objective)",
         template="plotly_white",
@@ -196,7 +197,7 @@ def plot_pareto_fronts(npz_path, output_dir="plots"):
     fig.update_layout(
         title='Pareto Fronts Between Objectives',
         template='plotly_white',
-        width=700,
+        width=750,
         height=500,  # Reduced height
         showlegend=False,
         margin=dict(l=60, r=30, t=60, b=60)
@@ -253,8 +254,8 @@ def plot_objective_contour(npz_path, output_dir="plots"):
         xaxis_title=y_labels[1],  # Default to second objective
         yaxis_title=y_labels[0],  # Default to first objective
         template='plotly_white',
-        width=900,
-        height=700,
+        width=750,
+        height=750,
         updatemenus=[{
             'buttons': buttons,
             'direction': 'down',
@@ -276,73 +277,58 @@ def create_dashboard_html(output_dir="plots"):
     <html>
     <head>
         <style>
-            body {{ font-family: Arial, sans-serif; margin: 20px; }}
-            .container {{ max-width: 800px; margin: 0 auto; }}
-            .plot-section {{ margin-bottom: 20px; }}
-            .plot-header {{
-                background-color: #f0f0f0;
-                padding: 10px;
-                cursor: pointer;
-                border-radius: 4px;
-                display: flex;
-                justify-content: space-between;
-                align-items: center;
+            body {{ font-family: Arial, sans-serif; margin: 2px; background-color: #fff; }}
+            .container {{ max-width: 800px; width: 100%; margin: 0 auto; background-color: white; padding: 2px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }}
+            .tabs {{ display: flex; border-bottom: 2px solid #e0e0e0; margin-bottom: 2px; }}
+            .tab {{ padding: 12px 24px; cursor: pointer; border: none; background: none; font-size: 16px; color: #666; transition: all 0.3s ease; position: relative; }}
+            .tab:hover {{ color: #333; }}
+            .tab.active {{ color: #2196F3; }}
+            .tab.active::after {{ content: ''; position: absolute; bottom: -2px; left: 0; width: 100%; height: 2px; background-color: #2196F3; }}
+            .tab-content {{
+                display: block;
+                visibility: hidden;
+                position: absolute;
+                left: -9999px;
+                width: 100%;
+                padding: 2px 0;
             }}
-            .plot-header:hover {{ background-color: #e0e0e0; }}
-            .plot-content {{ 
-                display: none;
-                padding: 10px;
-                border: 1px solid #ddd;
-                border-radius: 0 0 4px 4px;
+            .tab-content.active {{
+                visibility: visible;
+                position: static;
+                left: 0;
             }}
-            .plot-content.active {{ display: block; }}
-            iframe {{ width: 100%; height: 520px; border: none; }}  /* Adjusted height */
-            .toggle-icon {{ font-size: 20px; }}
+            iframe {{ width: 100%; min-width: 0; height: 550px; border: none; border-radius: 4px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }}
         </style>
     </head>
     <body>
         <div class="container">
-            <div class="plot-section">
-                <div class="plot-header" onclick="togglePlot('objectives')">
-                    <span>Objectives vs Iteration</span>
-                    <span class="toggle-icon">▼</span>
-                </div>
-                <div id="objectives" class="plot-content">
-                    <iframe src="subobjectives_vs_iteration.html"></iframe>
-                </div>
+            <div class="tabs">
+                <button class="tab active" onclick="openTab(event, 'pareto')">Pareto Fronts</button>
+                <button class="tab" onclick="openTab(event, 'objectives')">Objectives vs Iteration</button>
             </div>
-            
-            <div class="plot-section">
-                <div class="plot-header" onclick="togglePlot('pareto')">
-                    <span>Pareto Fronts</span>
-                    <span class="toggle-icon">▼</span>
-                </div>
-                <div id="pareto" class="plot-content">
-                    <iframe src="pareto_fronts.html"></iframe>
-                </div>
+            <div id="pareto" class="tab-content active">
+                <iframe id="iframe-pareto" src="pareto_fronts.html"></iframe>
+            </div>
+            <div id="objectives" class="tab-content">
+                <iframe id="iframe-objectives" src="subobjectives_vs_iteration.html"></iframe>
             </div>
         </div>
-        
         <script>
-            function togglePlot(id) {{
-                const content = document.getElementById(id);
-                const header = content.previousElementSibling;
-                const icon = header.querySelector('.toggle-icon');
-                
-                if (content.classList.contains('active')) {{
-                    content.classList.remove('active');
-                    icon.textContent = '▼';
-                }} else {{
-                    content.classList.add('active');
-                    icon.textContent = '▲';
+            function openTab(evt, tabName) {{
+                // Hide all tab contents
+                var tabContents = document.getElementsByClassName("tab-content");
+                for (var i = 0; i < tabContents.length; i++) {{
+                    tabContents[i].classList.remove("active");
                 }}
+                // Remove active class from all tabs
+                var tabs = document.getElementsByClassName("tab");
+                for (var i = 0; i < tabs.length; i++) {{
+                    tabs[i].classList.remove("active");
+                }}
+                // Show the current tab and add active class
+                document.getElementById(tabName).classList.add("active");
+                evt.currentTarget.classList.add("active");
             }}
-            
-            // Open both plots by default
-            document.addEventListener('DOMContentLoaded', function() {{
-                togglePlot('objectives');
-                togglePlot('pareto');
-            }});
         </script>
     </body>
     </html>
@@ -353,7 +339,7 @@ def create_dashboard_html(output_dir="plots"):
     print(f"Dashboard saved to {outpath}")
 
 if __name__ == "__main__":
-    data_path = r"C:/Users/kevin/Documents/py-bayes-parametric/examples/FreeCADFEA/data/bracket_optimization_results.npz"
+    data_path = r"C:/Users/kevin/Documents/py-bayes-parametric/examples/XFOIL/data/control_point_foil.npz"
     plot_subobjectives_vs_iteration(data_path)
     plot_pareto_fronts(data_path)
     create_dashboard_html("plots") 

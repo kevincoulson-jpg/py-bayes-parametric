@@ -23,9 +23,11 @@ class GeneralBayesOpt:
         self.n_init = n_init
         self.n_iter = n_iter
         self.device = device
+        self.x = None
         self.X = []
         self.Y = []
         self.constraints = constraints if constraints is not None else []
+        self.n_objectives = len(evaluate_function(bounds[0]))
 
     def check_constraints(self, x):
         """Check if all constraints are satisfied."""
@@ -34,10 +36,12 @@ class GeneralBayesOpt:
     def evaluate(self, x):
         """Evaluate all objectives at x (expects x as 1D numpy array)."""
         print(f"[EVAL GENERAL] x={x}")
+        self.x = x # probably superfluous
         if not self.check_constraints(x):
             print(f"[EVAL GENERAL] Constraints not satisfied for x={x}")
-            return [-1e15] * len(self.evaluate_function(x))
+            return [-1e15] * self.n_objectives
         
+        print(f"[EVAL GENERAL] Constraints satisfied for x={x}")
         y = self.evaluate_function(x)
         if np.any(np.isnan(y)):
             print(f"[EVAL GENERAL] NaN values in output for x={x}")
@@ -49,10 +53,12 @@ class GeneralBayesOpt:
             # Generate random values within bounds until constraints are satisfied
             while True:
                 x = np.random.uniform(self.bounds[0].cpu(), self.bounds[1].cpu())
+                self.x = x # also superfluous
                 if self.check_constraints(x):
                     break
             print("-"*20, f"[INIT] i={i}", "-"*20)
             print(f"[INIT] x={x}")
+            self.x = x
             y = self.evaluate(x)
             self.X.append(x)
             self.Y.append(y)
@@ -92,6 +98,7 @@ class GeneralBayesOpt:
             )
             x_new = candidate.detach().cpu().numpy().flatten()
             print(f"[OPTIMIZE] New candidate: {x_new}")
+            self.x = x_new
             y_new = self.evaluate(x_new)
             X = torch.cat([X, candidate], dim=0)
             Y = torch.cat([Y, torch.tensor([y_new], dtype=torch.double, device=self.device)], dim=0)
