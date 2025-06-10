@@ -1,0 +1,12 @@
+torch
+numpy
+botorch
+gpytorch
+ipykernel
+matplotlib
+scipy
+scikit-learn
+pandas
+pyvista
+ezdxf
+plotly
